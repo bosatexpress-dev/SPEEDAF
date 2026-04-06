@@ -107,20 +107,24 @@ const FormData = require('form-data');
 
     console.log("جاري الضغط على زر إصدار (Export)...");
     await page.evaluate(() => {
-        const spans = document.querySelectorAll('span');
-        for (let span of spans) {
-            if (span.innerText.trim() === 'إصدار' || span.innerText.trim() === 'Export') {
-                span.click(); return;
+        // بحث أعمق عن الزرار لتفادي أي خطأ
+        const buttons = document.querySelectorAll('button, span');
+        for (let btn of buttons) {
+            if (btn.innerText && (btn.innerText.trim() === 'إصدار' || btn.innerText.trim() === 'Export')) {
+                btn.click(); 
+                return;
             }
         }
     });
 
-    console.log("جاري انتظار نزول الملف...");
+    console.log("جاري انتظار نزول الملف (الحد الأقصى للانتظار 60 ثانية)...");
     let downloadedFilePath = null;
-    for (let i = 0; i < 30; i++) { 
+    // زودنا اللوب لـ 60 ثانية
+    for (let i = 0; i < 60; i++) { 
         await new Promise(r => setTimeout(r, 1000));
         const files = fs.readdirSync(downloadPath);
-        const file = files.find(f => !f.endsWith('.crdownload'));
+        // هنتجاهل الملفات المؤقتة وأي ملفات نظام مخفية
+        const file = files.find(f => !f.endsWith('.crdownload') && !f.startsWith('.'));
         if (file) {
             downloadedFilePath = path.join(downloadPath, file);
             break;
@@ -130,7 +134,6 @@ const FormData = require('form-data');
     if (downloadedFilePath) {
         console.log(`تم العثور على الملف: ${downloadedFilePath} .. جاري الإرسال لتيليجرام...`);
         const form = new FormData();
-        // هنا استخدمنا الأسامي المخصصة للمشروع
         form.append('chat_id', process.env.TELEGRAM_CHAT_ID_SPEEDAF);
         form.append('document', fs.createReadStream(downloadedFilePath));
 
@@ -147,7 +150,7 @@ const FormData = require('form-data');
             console.error("❌ فشل الإرسال لتيليجرام:", result);
         }
     } else {
-        console.log("❌ لم يتم العثور على الملف. يبدو أن التحميل لم يبدأ.");
+        console.log("❌ لم يتم العثور على الملف. يبدو أن التحميل لم يبدأ أو الموقع استغرق وقتاً طويلاً جداً.");
     }
 
   } catch (error) {
