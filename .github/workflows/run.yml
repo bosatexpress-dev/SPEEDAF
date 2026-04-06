@@ -1,0 +1,27 @@
+name: Speedaf Login Bot
+
+on:
+  workflow_dispatch: # ده عشان يظهرلك زرار تشغله بيه بإيدك وقت ما تحب
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: npm install puppeteer tesseract.js
+
+      - name: Run Login Script
+        env:
+          # هنا بنربط الخزنة السرية بالكود بتاعك
+          SPEEDAF_USER: ${{ secrets.SPEEDAF_USER }}
+          SPEEDAF_PASS: ${{ secrets.SPEEDAF_PASS }}
+        run: node login.js
