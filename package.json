@@ -1,0 +1,13 @@
+{
+  "name": "speedaf-bot",
+  "version": "1.0.0",
+  "main": "speedaf.js",
+  "scripts": {
+    "start": "node speedaf.js"
+  },
+  "dependencies": {
+    "puppeteer": "^24.0.0",
+    "sharp": "^0.34.0",
+    "tesseract.js": "^6.0.0"
+  }
+}
