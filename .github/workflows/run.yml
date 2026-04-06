@@ -1,7 +1,7 @@
 name: Speedaf Login Bot
 
 on:
-  workflow_dispatch: # ده عشان يظهرلك زرار تشغله بيه بإيدك وقت ما تحب
+  workflow_dispatch:
 
 jobs:
   run-script:
@@ -17,11 +17,13 @@ jobs:
           node-version: '18'
 
       - name: Install Dependencies
-        run: npm install puppeteer tesseract.js
+        run: npm install puppeteer tesseract.js form-data
 
       - name: Run Login Script
         env:
-          # هنا بنربط الخزنة السرية بالكود بتاعك
           SPEEDAF_USER: ${{ secrets.SPEEDAF_USER }}
           SPEEDAF_PASS: ${{ secrets.SPEEDAF_PASS }}
+          # ربطنا المتغيرات الجديدة هنا
+          TELEGRAM_TOKEN_SPEEDAF: ${{ secrets.TELEGRAM_TOKEN_SPEEDAF }}
+          TELEGRAM_CHAT_ID_SPEEDAF: ${{ secrets.TELEGRAM_CHAT_ID_SPEEDAF }}
         run: node login.js
