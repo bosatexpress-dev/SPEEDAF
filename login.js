@@ -10,16 +10,39 @@ const FormData = require('form-data');
 
   const browser = await puppeteer.launch({ 
       headless: true, 
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--lang=ar'] 
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--lang=ar', '--window-size=1280,800'] 
   });
   
   const page = await browser.newPage();
+  await page.setViewport({ width: 1280, height: 800 }); // تكبير الشاشة عشان السكرين شوت تكون واضحة
   
   const client = await page.target().createCDPSession();
   await client.send('Page.setDownloadBehavior', {
       behavior: 'allow',
       downloadPath: downloadPath,
   });
+
+  // دالة مساعدة لتصوير الشاشة وإرسالها لتيليجرام
+  async function sendScreenshotToTelegram(filename, caption) {
+      const filepath = path.join(__dirname, filename);
+      await page.screenshot({ path: filepath, fullPage: true });
+      
+      const form = new FormData();
+      form.append('chat_id', process.env.TELEGRAM_CHAT_ID_SPEEDAF);
+      form.append('photo', fs.createReadStream(filepath));
+      form.append('caption', caption);
+
+      try {
+          await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN_SPEEDAF}/sendPhoto`, {
+              method: 'POST',
+              body: form,
+              headers: form.getHeaders()
+          });
+          console.log(`تم إرسال صورة: ${caption}`);
+      } catch (err) {
+          console.error("فشل إرسال الصورة لتيليجرام:", err.message);
+      }
+  }
 
   console.log("جاري فتح الموقع...");
   await page.goto('https://csp.speedaf.com/', { waitUntil: 'networkidle2' });
@@ -62,13 +85,14 @@ const FormData = require('form-data');
     });
 
     await new Promise(resolve => setTimeout(resolve, 8000)); 
+    
+    // سكرين شوت رقم 1
+    await sendScreenshotToTelegram('step1.png', '📸 الخطوة 1: بعد تسجيل الدخول مباشرة');
 
     console.log("جاري التحقق من اللغة وتغييرها للعربية...");
     await page.evaluate(() => {
         const langDropdown = document.querySelector('.el-dropdown-link');
-        if (langDropdown) {
-            langDropdown.click(); 
-        }
+        if (langDropdown) langDropdown.click(); 
     });
     await new Promise(resolve => setTimeout(resolve, 1000));
     await page.evaluate(() => {
@@ -105,9 +129,11 @@ const FormData = require('form-data');
     console.log("في انتظار تحميل البيانات...");
     await new Promise(resolve => setTimeout(resolve, 10000));
 
+    // سكرين شوت رقم 2
+    await sendScreenshotToTelegram('step2.png', '📸 الخطوة 2: صفحة إدارة الطلبات (الجدول ظهر ولا لأ؟)');
+
     console.log("جاري الضغط على زر إصدار (Export)...");
     await page.evaluate(() => {
-        // بحث أعمق عن الزرار لتفادي أي خطأ
         const buttons = document.querySelectorAll('button, span');
         for (let btn of buttons) {
             if (btn.innerText && (btn.innerText.trim() === 'إصدار' || btn.innerText.trim() === 'Export')) {
@@ -117,13 +143,15 @@ const FormData = require('form-data');
         }
     });
 
-    console.log("جاري انتظار نزول الملف (الحد الأقصى للانتظار 60 ثانية)...");
+    // سكرين شوت رقم 3
+    await sendScreenshotToTelegram('step3.png', '📸 الخطوة 3: تم الضغط على زر إصدار (هل ظهرت رسالة تأكيد؟)');
+
+    console.log("جاري انتظار نزول الملف (الحد الأقصى للانتظار 120 ثانية)...");
     let downloadedFilePath = null;
-    // زودنا اللوب لـ 60 ثانية
-    for (let i = 0; i < 60; i++) { 
+    // تم التعديل لـ 120 ثانية
+    for (let i = 0; i < 120; i++) { 
         await new Promise(r => setTimeout(r, 1000));
         const files = fs.readdirSync(downloadPath);
-        // هنتجاهل الملفات المؤقتة وأي ملفات نظام مخفية
         const file = files.find(f => !f.endsWith('.crdownload') && !f.startsWith('.'));
         if (file) {
             downloadedFilePath = path.join(downloadPath, file);
@@ -146,15 +174,15 @@ const FormData = require('form-data');
         const result = await response.json();
         if (result.ok) {
             console.log("✅ تم إرسال الشيت على تيليجرام بنجاح!");
-        } else {
-            console.error("❌ فشل الإرسال لتيليجرام:", result);
         }
     } else {
-        console.log("❌ لم يتم العثور على الملف. يبدو أن التحميل لم يبدأ أو الموقع استغرق وقتاً طويلاً جداً.");
+        console.log("❌ لم يتم العثور على الملف بعد انتظار دقيقتين.");
+        await sendScreenshotToTelegram('step4.png', '❌ الخطوة 4: فشل التحميل بعد دقيقتين.. دي الشاشة النهائية');
     }
 
   } catch (error) {
     console.error("حدث خطأ أثناء التنفيذ:", error.message);
+    await sendScreenshotToTelegram('error.png', `⚠️ حصل خطأ مفاجئ: ${error.message}`);
   } finally {
     await browser.close();
   }
