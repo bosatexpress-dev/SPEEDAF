@@ -2,7 +2,6 @@ const puppeteer = require('puppeteer');
 const Tesseract = require('tesseract.js');
 const fs = require('fs');
 const path = require('path');
-const FormData = require('form-data');
 
 (async () => {
   const downloadPath = path.resolve(__dirname, 'downloads');
@@ -14,7 +13,7 @@ const FormData = require('form-data');
   });
   
   const page = await browser.newPage();
-  await page.setViewport({ width: 1280, height: 800 }); // تكبير الشاشة عشان السكرين شوت تكون واضحة
+  await page.setViewport({ width: 1280, height: 800 }); 
   
   const client = await page.target().createCDPSession();
   await client.send('Page.setDownloadBehavior', {
@@ -22,25 +21,34 @@ const FormData = require('form-data');
       downloadPath: downloadPath,
   });
 
-  // دالة مساعدة لتصوير الشاشة وإرسالها لتيليجرام
+  // الدالة المحدثة لتصوير الشاشة وإرسالها بطريقة مضمونة 100%
   async function sendScreenshotToTelegram(filename, caption) {
       const filepath = path.join(__dirname, filename);
       await page.screenshot({ path: filepath, fullPage: true });
       
-      const form = new FormData();
-      form.append('chat_id', process.env.TELEGRAM_CHAT_ID_SPEEDAF);
-      form.append('photo', fs.createReadStream(filepath));
-      form.append('caption', caption);
-
       try {
-          await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN_SPEEDAF}/sendPhoto`, {
+          // قراءة الصورة وتحويلها للصيغة المدعومة في Node 18
+          const fileBuffer = fs.readFileSync(filepath);
+          const fileBlob = new Blob([fileBuffer], { type: 'image/png' });
+
+          const form = new FormData();
+          form.append('chat_id', process.env.TELEGRAM_CHAT_ID_SPEEDAF);
+          form.append('photo', fileBlob, filename);
+          form.append('caption', caption);
+
+          const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN_SPEEDAF}/sendPhoto`, {
               method: 'POST',
-              body: form,
-              headers: form.getHeaders()
+              body: form
           });
-          console.log(`تم إرسال صورة: ${caption}`);
+
+          const result = await response.json();
+          if (result.ok) {
+              console.log(`✅ تم إرسال صورة: ${caption}`);
+          } else {
+              console.error(`❌ تليجرام رفض الصورة (${caption}) والسبب:`, result.description);
+          }
       } catch (err) {
-          console.error("فشل إرسال الصورة لتيليجرام:", err.message);
+          console.error("❌ فشل الاتصال بتليجرام لإرسال الصورة:", err.message);
       }
   }
 
@@ -130,7 +138,7 @@ const FormData = require('form-data');
     await new Promise(resolve => setTimeout(resolve, 10000));
 
     // سكرين شوت رقم 2
-    await sendScreenshotToTelegram('step2.png', '📸 الخطوة 2: صفحة إدارة الطلبات (الجدول ظهر ولا لأ؟)');
+    await sendScreenshotToTelegram('step2.png', '📸 الخطوة 2: صفحة إدارة الطلبات');
 
     console.log("جاري الضغط على زر إصدار (Export)...");
     await page.evaluate(() => {
@@ -144,11 +152,10 @@ const FormData = require('form-data');
     });
 
     // سكرين شوت رقم 3
-    await sendScreenshotToTelegram('step3.png', '📸 الخطوة 3: تم الضغط على زر إصدار (هل ظهرت رسالة تأكيد؟)');
+    await sendScreenshotToTelegram('step3.png', '📸 الخطوة 3: تم الضغط على زر إصدار (انتظار التحميل)');
 
     console.log("جاري انتظار نزول الملف (الحد الأقصى للانتظار 120 ثانية)...");
     let downloadedFilePath = null;
-    // تم التعديل لـ 120 ثانية
     for (let i = 0; i < 120; i++) { 
         await new Promise(r => setTimeout(r, 1000));
         const files = fs.readdirSync(downloadPath);
@@ -161,19 +168,28 @@ const FormData = require('form-data');
 
     if (downloadedFilePath) {
         console.log(`تم العثور على الملف: ${downloadedFilePath} .. جاري الإرسال لتيليجرام...`);
-        const form = new FormData();
-        form.append('chat_id', process.env.TELEGRAM_CHAT_ID_SPEEDAF);
-        form.append('document', fs.createReadStream(downloadedFilePath));
+        try {
+            // الطريقة المحدثة لرفع الشيت عشان ميعملش نفس مشكلة الصورة
+            const docBuffer = fs.readFileSync(downloadedFilePath);
+            const docBlob = new Blob([docBuffer], { type: 'application/octet-stream' });
 
-        const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN_SPEEDAF}/sendDocument`, {
-            method: 'POST',
-            body: form,
-            headers: form.getHeaders() 
-        });
+            const docForm = new FormData();
+            docForm.append('chat_id', process.env.TELEGRAM_CHAT_ID_SPEEDAF);
+            docForm.append('document', docBlob, path.basename(downloadedFilePath));
 
-        const result = await response.json();
-        if (result.ok) {
-            console.log("✅ تم إرسال الشيت على تيليجرام بنجاح!");
+            const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN_SPEEDAF}/sendDocument`, {
+                method: 'POST',
+                body: docForm
+            });
+
+            const result = await response.json();
+            if (result.ok) {
+                console.log("✅ تم إرسال الشيت على تيليجرام بنجاح!");
+            } else {
+                console.error("❌ تليجرام رفض الشيت والسبب:", result.description);
+            }
+        } catch (err) {
+            console.error("❌ خطأ أثناء رفع الشيت لتيليجرام:", err.message);
         }
     } else {
         console.log("❌ لم يتم العثور على الملف بعد انتظار دقيقتين.");
