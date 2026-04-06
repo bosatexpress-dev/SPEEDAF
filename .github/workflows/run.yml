@@ -1,29 +1,34 @@
-name: Speedaf Login Bot
+name: Speedaf Bot
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
 
 jobs:
-  run-script:
+  run-bot:
     runs-on: ubuntu-latest
 
+    env:
+      SPEEDAF_USER: ${{ secrets.SPEEDAF_USER }}
+      SPEEDAF_PASS: ${{ secrets.SPEEDAF_PASS }}
+      TELEGRAM_CHAT_ID_SPEEDAF: ${{ secrets.TELEGRAM_CHAT_ID_SPEEDAF }}
+      TELEGRAM_TOKEN_SPEEDAF: ${{ secrets.TELEGRAM_TOKEN_SPEEDAF }}
+
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: 20
 
-      - name: Install Dependencies
-        run: npm install puppeteer tesseract.js form-data
+      - name: Install dependencies
+        run: npm install
 
-      - name: Run Login Script
-        env:
-          SPEEDAF_USER: ${{ secrets.SPEEDAF_USER }}
-          SPEEDAF_PASS: ${{ secrets.SPEEDAF_PASS }}
-          # ربطنا المتغيرات الجديدة هنا
-          TELEGRAM_TOKEN_SPEEDAF: ${{ secrets.TELEGRAM_TOKEN_SPEEDAF }}
-          TELEGRAM_CHAT_ID_SPEEDAF: ${{ secrets.TELEGRAM_CHAT_ID_SPEEDAF }}
-        run: node login.js
+      - name: Install Chrome for Puppeteer
+        run: npx puppeteer browsers install chrome
+
+      - name: Run script
+        run: node speedaf.js
